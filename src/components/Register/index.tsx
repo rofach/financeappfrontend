@@ -1,5 +1,5 @@
 import { API_URL } from '../../config';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { UserPlus, Mail, Key, User, Globe, AlertTriangle, CheckCircle } from 'lucide-react';
 import styles from './Register.module.css';
 
@@ -17,6 +17,33 @@ export const Register: React.FC<RegisterProps> = ({ onRegisterSuccess, onNavigat
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [currencies, setCurrencies] = useState<{code: string, name: string}[]>([]);
+
+  useEffect(() => {
+    fetch(`${API_URL}/api/v1/currencies`)
+      .then(res => res.json())
+      .then(data => {
+        const list = data.data || data;
+        if (Array.isArray(list) && list.length > 0) {
+          setCurrencies(list);
+        } else {
+          // Fallback if API fails or returns empty
+          setCurrencies([
+            { code: 'USD', name: 'US Dollar' },
+            { code: 'EUR', name: 'Euro' },
+            { code: 'UAH', name: 'Ukrainian Hryvnia' }
+          ]);
+        }
+      })
+      .catch(err => {
+        console.error('Failed to load currencies:', err);
+        setCurrencies([
+          { code: 'USD', name: 'US Dollar' },
+          { code: 'EUR', name: 'Euro' },
+          { code: 'UAH', name: 'Ukrainian Hryvnia' }
+        ]);
+      });
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -169,9 +196,11 @@ export const Register: React.FC<RegisterProps> = ({ onRegisterSuccess, onNavigat
                 onChange={(e) => setBaseCurrency(e.target.value)}
                 required
               >
-                <option value="USD">USD ($) - US Dollar</option>
-                <option value="EUR">EUR (€) - Euro</option>
-                <option value="UAH">UAH (₴) - Ukrainian Hryvnia</option>
+                {currencies.map(c => (
+                  <option key={c.code} value={c.code}>
+                    {c.code} - {c.name}
+                  </option>
+                ))}
               </select>
             </div>
           </div>

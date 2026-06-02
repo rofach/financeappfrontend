@@ -63,7 +63,7 @@ export const Recurring: React.FC<RecurringProps> = ({ token, locale }) => {
       });
       if (res.ok) {
         const data = await res.json();
-        setPayments(data.data || []);
+        setPayments(data.data || data || []);
       } else {
         throw new Error('Failed to fetch recurring payments');
       }
