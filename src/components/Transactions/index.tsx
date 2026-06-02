@@ -1,17 +1,17 @@
 import { API_URL } from '../../config';
 import React, { useState, useEffect } from 'react';
-import { Plus, Edit2, Trash2, ShieldAlert, X, AlertCircle } from 'lucide-react';
+import { Plus, Edit2, Trash2, ShieldAlert, X, AlertCircle, ArrowLeft, ArrowRight, FilterX, TrendingUp, TrendingDown, DollarSign } from 'lucide-react';
 import styles from './Transactions.module.css';
 
 interface TransactionsProps {
   token: string;
   locale: 'en' | 'uk';
-  accountId?: string; // Optional: if provided, filters/defaults to this account
+  accountId?: string;
 }
 
 interface Transaction {
   id: string;
-  type: number; // 1 for Income, 2 for Expense
+  type: TransactionType;
   amount: number;
   baseAmount: number;
   date: string;
@@ -44,6 +44,13 @@ interface Category {
   nameUk: string;
 }
 
+export const TransactionType = {
+  INCOME: 'INCOME',
+  EXPENSE: 'EXPENSE',
+} as const;
+
+export type TransactionType = typeof TransactionType[keyof typeof TransactionType];
+
 export const Transactions: React.FC<TransactionsProps> = ({ token, locale, accountId }) => {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
@@ -51,11 +58,22 @@ export const Transactions: React.FC<TransactionsProps> = ({ token, locale, accou
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Filters & Pagination
+  const [page, setPage] = useState(1);
+  const [limit] = useState(50);
+  const [filterStartDate, setFilterStartDate] = useState('');
+  const [filterEndDate, setFilterEndDate] = useState('');
+  const [filterType, setFilterType] = useState<string>('');
+  const [filterCategoryId, setFilterCategoryId] = useState<string>('');
+
+  // Statistics
+  const [stats, setStats] = useState({ totalIncome: 0, totalExpense: 0, netBalance: 0 });
+
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
 
-  const [type, setType] = useState<number>(2); // 2 = Expense, 1 = Income
+  const [type, setType] = useState<TransactionType>(TransactionType.EXPENSE);
   const [amount, setAmount] = useState('0');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [note, setNote] = useState('');
@@ -69,12 +87,24 @@ export const Transactions: React.FC<TransactionsProps> = ({ token, locale, accou
     setLoading(true);
     setError(null);
     try {
-      const txUrl = accountId 
-        ? `${API_URL}/api/v1/transactions?limit=50&accountId=${accountId}`
-        : `${API_URL}/api/v1/transactions?limit=50`;
+      const queryParams = new URLSearchParams({
+        page: page.toString(),
+        limit: limit.toString(),
+      });
+      if (accountId) queryParams.append('accountId', accountId);
+      if (filterStartDate) queryParams.append('startDate', filterStartDate);
+      if (filterEndDate) queryParams.append('endDate', filterEndDate);
+      if (filterType) queryParams.append('type', filterType);
+      if (filterCategoryId) queryParams.append('categoryId', filterCategoryId);
 
-      const [txRes, accRes, catRes] = await Promise.all([
+      const txUrl = `${API_URL}/api/v1/transactions?${queryParams.toString()}`;
+      const statsUrl = `${API_URL}/api/v1/transactions/statistics?${queryParams.toString()}`;
+
+      const [txRes, statsRes, accRes, catRes] = await Promise.all([
         fetch(txUrl, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        }),
+        fetch(statsUrl, {
           headers: { 'Authorization': `Bearer ${token}` }
         }),
         fetch(`${API_URL}/api/v1/accounts`, {
@@ -85,11 +115,12 @@ export const Transactions: React.FC<TransactionsProps> = ({ token, locale, accou
         })
       ]);
 
-      if (!txRes.ok || !accRes.ok || !catRes.ok) {
+      if (!txRes.ok || !accRes.ok || !catRes.ok || !statsRes.ok) {
         throw new Error('Failed to load transaction data.');
       }
 
       let txData = await txRes.json();
+      const statsData = await statsRes.json();
       const accData = await accRes.json();
       const catData = await catRes.json();
 
@@ -98,8 +129,9 @@ export const Transactions: React.FC<TransactionsProps> = ({ token, locale, accou
       }
 
       setTransactions(txData);
+      setStats(statsData);
       setAccounts(accData);
-      
+
       const cats = catData.data || catData;
       setCategories(cats);
 
@@ -118,7 +150,7 @@ export const Transactions: React.FC<TransactionsProps> = ({ token, locale, accou
 
   useEffect(() => {
     fetchData();
-  }, [token, accountId]);
+  }, [token, accountId, page, filterStartDate, filterEndDate, filterType, filterCategoryId]);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -210,7 +242,7 @@ export const Transactions: React.FC<TransactionsProps> = ({ token, locale, accou
   };
 
   const resetForm = () => {
-    setType(2);
+    setType(TransactionType.EXPENSE);
     setAmount('0');
     setDate(new Date().toISOString().split('T')[0]);
     setNote('');
@@ -236,7 +268,15 @@ export const Transactions: React.FC<TransactionsProps> = ({ token, locale, accou
     setShowEditModal(true);
   };
 
-  if (loading) {
+  const clearFilters = () => {
+    setFilterStartDate('');
+    setFilterEndDate('');
+    setFilterType('');
+    setFilterCategoryId('');
+    setPage(1);
+  };
+
+  if (loading && transactions.length === 0) {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '60px 0' }}>
         <div className="spinner" style={{ width: '40px', height: '40px', borderWidth: '3px', marginBottom: '16px' }}></div>
@@ -249,9 +289,9 @@ export const Transactions: React.FC<TransactionsProps> = ({ token, locale, accou
     <div className={styles.container}>
       <div className={styles.header}>
         <div>
-          <h2 className={styles.title}>Transactions</h2>
+          <h2 className={styles.title}>Transactions History</h2>
           <p className={styles.subtitle}>
-            Manage your incomes and expenses. Balances will recalculate automatically.
+            Analyze your income and expenses over time.
           </p>
         </div>
         <button className="btn btn-primary" onClick={openCreateModal}>
@@ -267,10 +307,98 @@ export const Transactions: React.FC<TransactionsProps> = ({ token, locale, accou
         </div>
       )}
 
+      {/* STATISTICS CARDS */}
+      <div className={styles.statsGrid}>
+        <div className={`${styles.statCard} ${styles.income}`}>
+          <div className={styles.statLabel}>
+            <TrendingUp size={16} color="var(--accent-success)" />
+            Total Income
+          </div>
+          <div className={styles.statValue}>
+            {stats.totalIncome.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          </div>
+        </div>
+        <div className={`${styles.statCard} ${styles.expense}`}>
+          <div className={styles.statLabel}>
+            <TrendingDown size={16} color="var(--accent-danger)" />
+            Total Expense
+          </div>
+          <div className={styles.statValue}>
+            {stats.totalExpense.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          </div>
+        </div>
+        <div className={`${styles.statCard} ${styles.balance}`}>
+          <div className={styles.statLabel}>
+            <DollarSign size={16} color="#3b82f6" />
+            Net Balance
+          </div>
+          <div className={styles.statValue}>
+            {stats.netBalance >= 0 ? '+' : ''}{stats.netBalance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          </div>
+        </div>
+      </div>
+
+      {/* FILTER BAR */}
+      <div className={styles.filterBar}>
+        <div className={styles.filterGroup}>
+          <label className={styles.filterLabel}>Start Date</label>
+          <input
+            type="date"
+            className={styles.filterInput}
+            value={filterStartDate}
+            onChange={(e) => { setFilterStartDate(e.target.value); setPage(1); }}
+          />
+        </div>
+        <div className={styles.filterGroup}>
+          <label className={styles.filterLabel}>End Date</label>
+          <input
+            type="date"
+            className={styles.filterInput}
+            value={filterEndDate}
+            onChange={(e) => { setFilterEndDate(e.target.value); setPage(1); }}
+          />
+        </div>
+        <div className={styles.filterGroup}>
+          <label className={styles.filterLabel}>Type</label>
+          <select
+            className={styles.filterInput}
+            value={filterType}
+            onChange={(e) => { setFilterType(e.target.value); setPage(1); }}
+          >
+            <option value="">All Types</option>
+            <option value={TransactionType.INCOME}>Income</option>
+            <option value={TransactionType.EXPENSE}>Expense</option>
+          </select>
+        </div>
+        <div className={styles.filterGroup}>
+          <label className={styles.filterLabel}>Category</label>
+          <select
+            className={styles.filterInput}
+            value={filterCategoryId}
+            onChange={(e) => { setFilterCategoryId(e.target.value); setPage(1); }}
+          >
+            <option value="">All Categories</option>
+            {categories.map(cat => (
+              <option key={cat.id} value={cat.id}>
+                {locale === 'uk' && cat.nameUk ? cat.nameUk : cat.nameEn}
+              </option>
+            ))}
+          </select>
+        </div>
+        <button
+          className="btn btn-secondary"
+          onClick={clearFilters}
+          style={{ height: '42px', padding: '0 16px' }}
+        >
+          <FilterX size={16} />
+          Clear
+        </button>
+      </div>
+
       {transactions.length === 0 ? (
         <div className="alert" style={{ background: 'rgba(255,255,255,0.05)', textAlign: 'center', padding: '40px' }}>
           <h3 style={{ marginBottom: '8px' }}>No transactions found</h3>
-          <p style={{ color: 'var(--text-secondary)' }}>You haven't recorded any transactions yet.</p>
+          <p style={{ color: 'var(--text-secondary)' }}>Try adjusting your filters or recording a new transaction.</p>
         </div>
       ) : (
         <div className={styles.tableContainer}>
@@ -286,19 +414,19 @@ export const Transactions: React.FC<TransactionsProps> = ({ token, locale, accou
                 <th style={{ textAlign: 'right' }}>Actions</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody style={{ opacity: loading ? 0.5 : 1, transition: 'opacity 0.2s' }}>
               {transactions.map(tx => (
                 <tr key={tx.id}>
                   <td>{new Date(tx.date).toLocaleDateString()}</td>
                   <td>
-                    <span className={`${styles.typeBadge} ${tx.type === 1 ? styles.income : styles.expense}`}>
-                      {tx.type === 1 ? 'Income' : 'Expense'}
+                    <span className={`${styles.typeBadge} ${tx.type === TransactionType.INCOME ? styles.income : styles.expense}`}>
+                      {tx.type === TransactionType.INCOME ? 'Income' : 'Expense'}
                     </span>
                   </td>
                   <td>{locale === 'uk' && tx.category.nameUk ? tx.category.nameUk : tx.category.nameEn}</td>
                   <td>{tx.account.name}</td>
                   <td className={styles.amount}>
-                    {tx.type === 2 ? '-' : '+'}{tx.amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {tx.account.currency.code}
+                    {tx.type === TransactionType.EXPENSE ? '-' : '+'}{tx.amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {tx.account.currency.code}
                   </td>
                   <td style={{ maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {tx.note || '-'}
@@ -317,6 +445,31 @@ export const Transactions: React.FC<TransactionsProps> = ({ token, locale, accou
               ))}
             </tbody>
           </table>
+
+          {/* PAGINATION */}
+          <div className={styles.pagination}>
+            <div className={styles.pageInfo}>
+              Showing page {page}
+            </div>
+            <div className={styles.pageControls}>
+              <button
+                className="btn btn-secondary"
+                disabled={page === 1}
+                onClick={() => setPage(p => Math.max(1, p - 1))}
+              >
+                <ArrowLeft size={16} />
+                Previous
+              </button>
+              <button
+                className="btn btn-secondary"
+                disabled={transactions.length < limit}
+                onClick={() => setPage(p => p + 1)}
+              >
+                Next
+                <ArrowRight size={16} />
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -347,11 +500,11 @@ export const Transactions: React.FC<TransactionsProps> = ({ token, locale, accou
                 <label className="form-label">Type</label>
                 <div style={{ display: 'flex', gap: '12px' }}>
                   <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
-                    <input type="radio" name="type" value="2" checked={type === 2} onChange={(e) => setType(parseInt(e.target.value, 10))} />
+                    <input type="radio" name="type" value={TransactionType.EXPENSE} checked={type === TransactionType.EXPENSE} onChange={(e) => setType(e.target.value as TransactionType)} />
                     Expense
                   </label>
                   <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
-                    <input type="radio" name="type" value="1" checked={type === 1} onChange={(e) => setType(parseInt(e.target.value, 10))} />
+                    <input type="radio" name="type" value={TransactionType.INCOME} checked={type === TransactionType.INCOME} onChange={(e) => setType(e.target.value as TransactionType)} />
                     Income
                   </label>
                 </div>

@@ -19,9 +19,9 @@ interface RecurringPayment {
   id: string;
   account: Account;
   category: Category;
-  type: number;
+  type: string;
   amount: number;
-  frequency: number;
+  frequency: 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'YEARLY';
   beginDate: string;
   nextExecuteDate: string | null;
   isActive: boolean;
@@ -44,9 +44,9 @@ export const Recurring: React.FC<RecurringProps> = ({ token, locale }) => {
   // Form State
   const [accountId, setAccountId] = useState('');
   const [categoryId, setCategoryId] = useState('');
-  const [type, setType] = useState(2); // Expense by default
+  const [type, setType] = useState('EXPENSE'); // Expense by default
   const [amount, setAmount] = useState('');
-  const [frequency, setFrequency] = useState(3); // Monthly by default
+  const [frequency, setFrequency] = useState('MONTHLY'); // Monthly by default
   const [beginDate, setBeginDate] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
 
@@ -117,9 +117,9 @@ export const Recurring: React.FC<RecurringProps> = ({ token, locale }) => {
         body: JSON.stringify({
           accountId,
           categoryId,
-          type: Number(type),
+          type,
           amount: Number(amount),
-          frequency: Number(frequency),
+          frequency,
           beginDate
         })
       });
@@ -163,13 +163,13 @@ export const Recurring: React.FC<RecurringProps> = ({ token, locale }) => {
     }
   };
 
-  const getFrequencyLabel = (freq: number) => {
+  const getFrequencyLabel = (freq: string) => {
     switch (freq) {
-      case 1: return 'Daily';
-      case 2: return 'Weekly';
-      case 3: return 'Monthly';
-      case 4: return 'Yearly';
-      default: return 'Unknown';
+      case 'DAILY': return 'Daily';
+      case 'WEEKLY': return 'Weekly';
+      case 'MONTHLY': return 'Monthly';
+      case 'YEARLY': return 'Yearly';
+      default: return freq;
     }
   };
 
@@ -196,7 +196,7 @@ export const Recurring: React.FC<RecurringProps> = ({ token, locale }) => {
             <div key={payment.id} className={`${styles.card} ${!payment.isActive ? styles.inactive : ''}`}>
               <div className={styles.cardHeader}>
                 <div className={styles.cardTitle}>
-                  <div className={`${styles.typeIcon} ${payment.type === 1 ? styles.income : styles.expense}`}>
+                  <div className={`${styles.typeIcon} ${payment.type === 'INCOME' ? styles.income : styles.expense}`}>
                     <RefreshCw size={18} />
                   </div>
                   <div>
@@ -217,8 +217,8 @@ export const Recurring: React.FC<RecurringProps> = ({ token, locale }) => {
               <div className={styles.cardBody}>
                 <div className={styles.amountGroup}>
                   <span className={styles.label}>Amount</span>
-                  <span className={`${styles.amount} ${payment.type === 1 ? styles.textIncome : styles.textExpense}`}>
-                    {payment.type === 1 ? '+' : '-'}${payment.amount}
+                  <span className={`${styles.amount} ${payment.type === 'INCOME' ? styles.textIncome : styles.textExpense}`}>
+                    {payment.type === 'INCOME' ? '+' : '-'}${payment.amount}
                   </span>
                 </div>
 
@@ -258,9 +258,9 @@ export const Recurring: React.FC<RecurringProps> = ({ token, locale }) => {
             <form onSubmit={handleCreate} className="modal-body">
               <div className="form-group">
                 <label>Type</label>
-                <select value={type} onChange={e => setType(Number(e.target.value))} required className="form-control" style={{ appearance: 'none', background: 'rgba(17, 24, 39, 0.8)' }}>
-                  <option value={2}>Expense</option>
-                  <option value={1}>Income</option>
+                <select value={type} onChange={e => setType(e.target.value)} required className="form-control" style={{ appearance: 'none', background: 'rgba(17, 24, 39, 0.8)' }}>
+                  <option value="EXPENSE">Expense</option>
+                  <option value="INCOME">Income</option>
                 </select>
               </div>
               <div className="form-group">
@@ -274,7 +274,7 @@ export const Recurring: React.FC<RecurringProps> = ({ token, locale }) => {
                 <label>Category</label>
                 <select value={categoryId} onChange={e => setCategoryId(e.target.value)} required className="form-control" style={{ appearance: 'none', background: 'rgba(17, 24, 39, 0.8)' }}>
                   <option value="">Select category...</option>
-                  {categories.filter(c => c.type === type).map(c => (
+                  {categories.map(c => (
                     <option key={c.id} value={c.id}>{(locale === 'uk' && c.nameUk) ? c.nameUk : (c.nameEn || 'Unnamed Category')}</option>
                   ))}
                 </select>
@@ -285,11 +285,11 @@ export const Recurring: React.FC<RecurringProps> = ({ token, locale }) => {
               </div>
               <div className="form-group">
                 <label>Frequency</label>
-                <select value={frequency} onChange={e => setFrequency(Number(e.target.value))} required className="form-control" style={{ appearance: 'none', background: 'rgba(17, 24, 39, 0.8)' }}>
-                  <option value={1}>Daily</option>
-                  <option value={2}>Weekly</option>
-                  <option value={3}>Monthly</option>
-                  <option value={4}>Yearly</option>
+                <select value={frequency} onChange={e => setFrequency(e.target.value)} required className="form-control" style={{ appearance: 'none', background: 'rgba(17, 24, 39, 0.8)' }}>
+                  <option value="DAILY">Daily</option>
+                  <option value="WEEKLY">Weekly</option>
+                  <option value="MONTHLY">Monthly</option>
+                  <option value="YEARLY">Yearly</option>
                 </select>
               </div>
               <div className="form-group">

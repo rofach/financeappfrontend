@@ -19,9 +19,14 @@ const App: React.FC = () => {
 
     if (savedToken && savedUser) {
       try {
+        const parsedUser = JSON.parse(savedUser);
         setToken(savedToken);
-        setUser(JSON.parse(savedUser));
-        setScreen('DASHBOARD');
+        setUser(parsedUser);
+        if (parsedUser?.role?.id === 1) {
+          setScreen('ADMIN');
+        } else {
+          setScreen('DASHBOARD');
+        }
       } catch {
         localStorage.removeItem('finance_app_token');
         localStorage.removeItem('finance_app_user');
@@ -35,7 +40,11 @@ const App: React.FC = () => {
     localStorage.setItem('finance_app_user', JSON.stringify(userData));
     setToken(loginToken);
     setUser(userData);
-    setScreen('DASHBOARD');
+    if (userData?.role?.id === 1) {
+      setScreen('ADMIN');
+    } else {
+      setScreen('DASHBOARD');
+    }
   };
 
   const handleLogout = () => {
