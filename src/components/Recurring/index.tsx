@@ -81,7 +81,8 @@ export const Recurring: React.FC<RecurringProps> = ({ token, locale }) => {
       });
       if (res.ok) {
         const data = await res.json();
-        setCategories(data.data || []);
+        const cats = data.data || data;
+        setCategories(cats);
       }
     } catch (err) {
       console.error(err);
@@ -95,7 +96,8 @@ export const Recurring: React.FC<RecurringProps> = ({ token, locale }) => {
       });
       if (res.ok) {
         const data = await res.json();
-        setAccounts(data.data || []);
+        const accs = data.data || data;
+        setAccounts(accs);
       }
     } catch (err) {
       console.error(err);
@@ -122,7 +124,7 @@ export const Recurring: React.FC<RecurringProps> = ({ token, locale }) => {
         })
       });
       if (!res.ok) throw new Error('Failed to create recurring payment');
-      
+
       setShowModal(false);
       fetchPayments();
     } catch (err: any) {
@@ -198,7 +200,7 @@ export const Recurring: React.FC<RecurringProps> = ({ token, locale }) => {
                     <RefreshCw size={18} />
                   </div>
                   <div>
-                    <h4>{locale === 'uk' ? payment.category.nameUk || payment.category.nameEn : payment.category.nameEn}</h4>
+                    <h4>{(locale === 'uk' && payment.category.nameUk) ? payment.category.nameUk : (payment.category.nameEn || 'Unnamed Category')}</h4>
                     <span>{payment.account.name}</span>
                   </div>
                 </div>
@@ -219,7 +221,7 @@ export const Recurring: React.FC<RecurringProps> = ({ token, locale }) => {
                     {payment.type === 1 ? '+' : '-'}${payment.amount}
                   </span>
                 </div>
-                
+
                 <div className={styles.detailsGroup}>
                   <div className={styles.detailItem}>
                     <Tags size={14} />
@@ -252,24 +254,24 @@ export const Recurring: React.FC<RecurringProps> = ({ token, locale }) => {
             <form onSubmit={handleCreate} className="modal-body">
               <div className="form-group">
                 <label>Type</label>
-                <select value={type} onChange={e => setType(Number(e.target.value))} required className="form-control">
+                <select value={type} onChange={e => setType(Number(e.target.value))} required className="form-control" style={{ appearance: 'none', background: 'rgba(17, 24, 39, 0.8)' }}>
                   <option value={2}>Expense</option>
                   <option value={1}>Income</option>
                 </select>
               </div>
               <div className="form-group">
                 <label>Account</label>
-                <select value={accountId} onChange={e => setAccountId(e.target.value)} required className="form-control">
+                <select value={accountId} onChange={e => setAccountId(e.target.value)} required className="form-control" style={{ appearance: 'none', background: 'rgba(17, 24, 39, 0.8)' }}>
                   <option value="">Select account...</option>
                   {accounts.map(acc => <option key={acc.id} value={acc.id}>{acc.name}</option>)}
                 </select>
               </div>
               <div className="form-group">
                 <label>Category</label>
-                <select value={categoryId} onChange={e => setCategoryId(e.target.value)} required className="form-control">
+                <select value={categoryId} onChange={e => setCategoryId(e.target.value)} required className="form-control" style={{ appearance: 'none', background: 'rgba(17, 24, 39, 0.8)' }}>
                   <option value="">Select category...</option>
                   {categories.filter(c => c.type === type).map(c => (
-                    <option key={c.id} value={c.id}>{locale === 'uk' ? c.nameUk || c.nameEn : c.nameEn}</option>
+                    <option key={c.id} value={c.id}>{(locale === 'uk' && c.nameUk) ? c.nameUk : (c.nameEn || 'Unnamed Category')}</option>
                   ))}
                 </select>
               </div>
@@ -279,7 +281,7 @@ export const Recurring: React.FC<RecurringProps> = ({ token, locale }) => {
               </div>
               <div className="form-group">
                 <label>Frequency</label>
-                <select value={frequency} onChange={e => setFrequency(Number(e.target.value))} required className="form-control">
+                <select value={frequency} onChange={e => setFrequency(Number(e.target.value))} required className="form-control" style={{ appearance: 'none', background: 'rgba(17, 24, 39, 0.8)' }}>
                   <option value={1}>Daily</option>
                   <option value={2}>Weekly</option>
                   <option value={3}>Monthly</option>
@@ -290,7 +292,7 @@ export const Recurring: React.FC<RecurringProps> = ({ token, locale }) => {
                 <label>Start Date</label>
                 <input type="date" value={beginDate} onChange={e => setBeginDate(e.target.value)} required className="form-control" />
               </div>
-              
+
               <div className="modal-actions">
                 <button type="button" className="btn btn-secondary" onClick={() => setShowModal(false)}>Cancel</button>
                 <button type="submit" className="btn btn-primary" disabled={actionLoading}>
