@@ -245,12 +245,16 @@ export const Recurring: React.FC<RecurringProps> = ({ token, locale }) => {
       )}
 
       {showModal && (
-        <div className="modal">
+        <div className="modal-overlay">
           <div className="modal-content">
-            <div className="modal-header">
-              <h3>Create Recurring Payment</h3>
-              <button className="icon-button" onClick={() => setShowModal(false)}><X size={20} /></button>
-            </div>
+            <button className="btn btn-text" style={{ position: 'absolute', right: '16px', top: '16px', padding: '4px' }} onClick={() => setShowModal(false)}>
+              <X size={20} />
+            </button>
+            
+            <h3 style={{ fontSize: '20px', marginBottom: '24px' }}>
+              Create Recurring Payment
+            </h3>
+            
             <form onSubmit={handleCreate} className="modal-body">
               <div className="form-group">
                 <label>Type</label>
